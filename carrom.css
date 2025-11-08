@@ -245,7 +245,7 @@ body {
         padding: 2px;
         min-height: 100vh;
         display: flex;
-        align-items: flex-start;
+        align-items: center;
     }
 
     .game-container {
