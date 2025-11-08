@@ -82,9 +82,13 @@ body {
 }
 
 .pieces-left {
-    font-size: 14px;
-    color: #555;
-    font-weight: 500;
+    font-size: 18px;
+    color: #333;
+    font-weight: 700;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 8px;
 }
 
 .game-info {
@@ -342,7 +346,8 @@ body {
     }
 
     .pieces-left {
-        font-size: 12px;
+        font-size: 16px;
+        padding: 6px 10px;
     }
 
     .current-player {

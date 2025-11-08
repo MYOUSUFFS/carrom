@@ -467,46 +467,116 @@ function drawAimLine() {
     if (gameState.isAiming && gameState.aimStart) {
         const dx = gameState.aimStart.x - gameState.striker.x;
         const dy = gameState.aimStart.y - gameState.striker.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const pullBackDistance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance > 5) {
-            const angle = Math.atan2(dy, dx);
-            const lineLength = Math.min(distance * 1.5, 250);
+        if (pullBackDistance > 5) {
+            // Pull back angle (opposite direction)
+            const pullBackAngle = Math.atan2(dy, dx);
+            // Shooting angle (forward direction - opposite of pull back)
+            const shootAngle = pullBackAngle + Math.PI;
+
+            // Calculate auto power based on pull-back distance (max 250px = 100%)
+            const autoPower = Math.min(100, Math.floor((pullBackDistance / 250) * 100));
+            gameState.power = autoPower;
+
+            // Update power display
+            document.getElementById('power-value').textContent = autoPower;
+            document.getElementById('power-slider').value = autoPower;
+
+            // Draw pull-back indicator (where you're pulling)
+            ctx.beginPath();
+            ctx.moveTo(gameState.striker.x, gameState.striker.y);
+            ctx.lineTo(gameState.aimStart.x, gameState.aimStart.y);
+            ctx.strokeStyle = 'rgba(231, 76, 60, 0.5)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 8]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw shooting direction line (forward)
+            const shootLineLength = pullBackDistance * 2;
+            const shootEndX = gameState.striker.x + Math.cos(shootAngle) * shootLineLength;
+            const shootEndY = gameState.striker.y + Math.sin(shootAngle) * shootLineLength;
 
             // Draw gradient aim line
             const gradient = ctx.createLinearGradient(
                 gameState.striker.x,
                 gameState.striker.y,
-                gameState.striker.x + Math.cos(angle) * lineLength,
-                gameState.striker.y + Math.sin(angle) * lineLength
+                shootEndX,
+                shootEndY
             );
             gradient.addColorStop(0, '#667eea');
             gradient.addColorStop(1, '#7e22ce');
 
             ctx.beginPath();
             ctx.moveTo(gameState.striker.x, gameState.striker.y);
-            ctx.lineTo(
-                gameState.striker.x + Math.cos(angle) * lineLength,
-                gameState.striker.y + Math.sin(angle) * lineLength
-            );
+            ctx.lineTo(shootEndX, shootEndY);
             ctx.strokeStyle = gradient;
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 5;
             ctx.setLineDash([15, 10]);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Draw power indicator circle at end of line
-            const powerIndicatorX = gameState.striker.x + Math.cos(angle) * lineLength;
-            const powerIndicatorY = gameState.striker.y + Math.sin(angle) * lineLength;
-            const powerSize = (gameState.power / 100) * 15 + 5;
-
+            // Draw target location indicator at the end
             ctx.beginPath();
-            ctx.arc(powerIndicatorX, powerIndicatorY, powerSize, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(126, 34, 206, 0.3)';
+            ctx.arc(shootEndX, shootEndY, 20, 0, Math.PI * 2);
+            ctx.strokeStyle = '#7e22ce';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Inner target circle
+            ctx.beginPath();
+            ctx.arc(shootEndX, shootEndY, 8, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(126, 34, 206, 0.4)';
             ctx.fill();
             ctx.strokeStyle = '#7e22ce';
             ctx.lineWidth = 2;
             ctx.stroke();
+
+            // Draw crosshair at target
+            ctx.beginPath();
+            ctx.moveTo(shootEndX - 15, shootEndY);
+            ctx.lineTo(shootEndX + 15, shootEndY);
+            ctx.moveTo(shootEndX, shootEndY - 15);
+            ctx.lineTo(shootEndX, shootEndY + 15);
+            ctx.strokeStyle = '#7e22ce';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw power percentage near striker
+            ctx.save();
+            ctx.font = 'bold 24px Arial';
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 4;
+            const powerText = `${autoPower}%`;
+            const textX = gameState.striker.x - 20;
+            const textY = gameState.striker.y - gameState.striker.radius - 15;
+            ctx.strokeText(powerText, textX, textY);
+            ctx.fillText(powerText, textX, textY);
+            ctx.restore();
+
+            // Draw power bar
+            const barWidth = 60;
+            const barHeight = 8;
+            const barX = gameState.striker.x - barWidth / 2;
+            const barY = gameState.striker.y - gameState.striker.radius - 30;
+
+            // Bar background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+            // Bar fill
+            const fillGradient = ctx.createLinearGradient(barX, barY, barX + barWidth, barY);
+            fillGradient.addColorStop(0, '#667eea');
+            fillGradient.addColorStop(1, '#7e22ce');
+            ctx.fillStyle = fillGradient;
+            ctx.fillRect(barX, barY, (barWidth * autoPower) / 100, barHeight);
+
+            // Bar border
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
         }
     }
 }
@@ -712,16 +782,19 @@ function handleEnd(e) {
 
     const dx = gameState.aimStart.x - gameState.striker.x;
     const dy = gameState.aimStart.y - gameState.striker.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const pullBackDistance = Math.sqrt(dx * dx + dy * dy);
 
-    if (distance > 5) {
-        // Increased power multiplier: More power across all percentages
-        // 10% = 3, 50% = 15, 100% = 30 power units
-        const power = (gameState.power / 100) * 30;
-        const angle = Math.atan2(dy, dx);
+    if (pullBackDistance > 5) {
+        // Calculate power based on pull-back distance
+        const autoPower = Math.min(100, (pullBackDistance / 250) * 100);
+        const power = (autoPower / 100) * 30;
 
-        gameState.striker.vx = Math.cos(angle) * power;
-        gameState.striker.vy = Math.sin(angle) * power;
+        // Shoot in opposite direction of pull (pull back to shoot forward)
+        const pullBackAngle = Math.atan2(dy, dx);
+        const shootAngle = pullBackAngle + Math.PI;
+
+        gameState.striker.vx = Math.cos(shootAngle) * power;
+        gameState.striker.vy = Math.sin(shootAngle) * power;
 
         gameState.shotInProgress = true;
     }
