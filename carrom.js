@@ -44,6 +44,7 @@ let gameState = {
     pieces: [],
     striker: null,
     isAiming: false,
+    isDraggingStriker: false,
     aimStart: null,
     power: 50,
     queenPocketed: false,
@@ -352,6 +353,30 @@ class Striker extends Piece {
         ctx.arc(this.x - this.radius/3, this.y - this.radius/3, this.radius/3, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.fill();
+
+        // Draw movement arrows if not in shot progress and not aiming
+        if (!gameState.shotInProgress && !gameState.isAiming) {
+            const arrowY = this.y;
+            const arrowSize = 8;
+
+            // Left arrow
+            ctx.beginPath();
+            ctx.moveTo(this.x - this.radius - 15, arrowY);
+            ctx.lineTo(this.x - this.radius - 15 - arrowSize, arrowY - arrowSize);
+            ctx.lineTo(this.x - this.radius - 15 - arrowSize, arrowY + arrowSize);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(102, 126, 234, 0.7)';
+            ctx.fill();
+
+            // Right arrow
+            ctx.beginPath();
+            ctx.moveTo(this.x + this.radius + 15, arrowY);
+            ctx.lineTo(this.x + this.radius + 15 + arrowSize, arrowY - arrowSize);
+            ctx.lineTo(this.x + this.radius + 15 + arrowSize, arrowY + arrowSize);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(102, 126, 234, 0.7)';
+            ctx.fill();
+        }
     }
 }
 
@@ -543,27 +568,36 @@ function drawAimLine() {
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Draw power percentage near striker
+            // Draw power indicator box (combined bar and percentage)
+            const boxWidth = 80;
+            const boxHeight = 50;
+            const boxX = gameState.striker.x - boxWidth / 2;
+            const boxY = gameState.striker.y - gameState.striker.radius - 65;
+
+            // Background box
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+            ctx.strokeStyle = '#7e22ce';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+            // Power percentage text
             ctx.save();
-            ctx.font = 'bold 24px Arial';
+            ctx.font = 'bold 20px Arial';
             ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 4;
+            ctx.textAlign = 'center';
             const powerText = `${autoPower}%`;
-            const textX = gameState.striker.x - 20;
-            const textY = gameState.striker.y - gameState.striker.radius - 15;
-            ctx.strokeText(powerText, textX, textY);
-            ctx.fillText(powerText, textX, textY);
+            ctx.fillText(powerText, gameState.striker.x, boxY + 22);
             ctx.restore();
 
-            // Draw power bar
-            const barWidth = 60;
-            const barHeight = 8;
+            // Power bar
+            const barWidth = 65;
+            const barHeight = 10;
             const barX = gameState.striker.x - barWidth / 2;
-            const barY = gameState.striker.y - gameState.striker.radius - 30;
+            const barY = boxY + 30;
 
             // Bar background
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
             ctx.fillRect(barX, barY, barWidth, barHeight);
 
             // Bar fill
@@ -574,8 +608,8 @@ function drawAimLine() {
             ctx.fillRect(barX, barY, (barWidth * autoPower) / 100, barHeight);
 
             // Bar border
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
             ctx.strokeRect(barX, barY, barWidth, barHeight);
         }
     }
@@ -761,23 +795,46 @@ function handleStart(e) {
     const dy = y - gameState.striker.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    if (distance < gameState.striker.radius * 2) {
-        gameState.isAiming = true;
-        gameState.aimStart = { x, y };
+    // Check if clicking on striker
+    if (distance < gameState.striker.radius * 1.5) {
+        gameState.isDraggingStriker = true;
         e.preventDefault();
     }
 }
 
 function handleMove(e) {
-    if (!gameState.isAiming) return;
-
     const rect = canvas.getBoundingClientRect();
     const { x, y } = getCanvasCoordinates(e, rect);
-    gameState.aimStart = { x, y };
-    e.preventDefault();
+
+    if (gameState.isDraggingStriker && !gameState.isAiming) {
+        // Move striker along the baseline
+        const baselineY = BOARD_SIZE - BOARD_PADDING - 50;
+        const leftLimit = BOARD_PADDING + 60;
+        const rightLimit = BOARD_SIZE - BOARD_PADDING - 60;
+
+        // Keep striker on baseline, allow horizontal movement
+        gameState.striker.x = Math.max(leftLimit, Math.min(rightLimit, x));
+        gameState.striker.y = baselineY;
+        e.preventDefault();
+    } else if (gameState.isAiming) {
+        gameState.aimStart = { x, y };
+        e.preventDefault();
+    }
 }
 
 function handleEnd(e) {
+    // If just dragging striker, start aiming mode
+    if (gameState.isDraggingStriker && !gameState.isAiming) {
+        const rect = canvas.getBoundingClientRect();
+        const { x, y } = getCanvasCoordinates(e, rect);
+
+        gameState.isDraggingStriker = false;
+        gameState.isAiming = true;
+        gameState.aimStart = { x, y };
+        e.preventDefault();
+        return;
+    }
+
     if (!gameState.isAiming) return;
 
     const dx = gameState.aimStart.x - gameState.striker.x;
@@ -800,6 +857,7 @@ function handleEnd(e) {
     }
 
     gameState.isAiming = false;
+    gameState.isDraggingStriker = false;
     gameState.aimStart = null;
     e.preventDefault();
 }
