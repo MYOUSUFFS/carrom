@@ -31,7 +31,9 @@ function resizeCanvas() {
   const maxWidth = Math.min(800, container.clientWidth - 30);
 
   BOARD_SIZE = maxWidth;
-  BOARD_PADDING = BOARD_SIZE / 13.33; // Reduced border (800/13.33 = 60)
+  // Mobile gets smaller padding for more play area
+  const isMobile = window.innerWidth <= 900;
+  BOARD_PADDING = isMobile ? BOARD_SIZE / 26.67 : BOARD_SIZE / 13.33; // Mobile: 30px, Desktop: 60px
   PLAYABLE_SIZE = BOARD_SIZE - BOARD_PADDING * 2;
   POCKET_RADIUS = BOARD_SIZE / 32;
   PIECE_RADIUS = BOARD_SIZE / 53.33;
@@ -583,17 +585,27 @@ function drawAimLine() {
         Math.atan2(Math.abs(dx), Math.abs(dy))
       );
 
+      // Mobile needs longer pull distance for better control
+      const isMobile = window.innerWidth <= 900;
+      const baseMultiplier = isMobile ? 0.20 : 0.13; // Mobile: ~1.5x longer pull needed
+      const angleMultiplier = isMobile ? 0.33 : 0.22; // Mobile: ~1.5x longer for diagonal
+
       // Straight down = 0, Diagonal (45°) = 0.785, Sideways (90°) = 1.57
-      // Map this to distance multiplier: 0.13 (straight) to 0.35 (sideways)
-      // Reduced straight-down from 0.18 to 0.13 for easier 100% power
       const distanceMultiplier =
-        0.13 + (absAngleFromVertical / (Math.PI / 2)) * 0.22;
+        baseMultiplier +
+        (absAngleFromVertical / (Math.PI / 2)) * angleMultiplier;
       const maxPullDistance = BOARD_SIZE * distanceMultiplier;
 
-      const autoPower = Math.min(
+      let autoPower = Math.min(
         100,
         Math.floor((pullBackDistance / maxPullDistance) * 100)
       );
+
+      // Auto 100% if cursor reaches near bottom edge (web only)
+      if (!isMobile && gameState.aimStart.y > BOARD_SIZE - 30) {
+        autoPower = 100;
+      }
+
       gameState.power = autoPower;
 
       // Draw pull-back indicator (where you're pulling)
@@ -974,14 +986,27 @@ function handleEnd(e) {
     const absAngleFromVertical = Math.abs(
       Math.atan2(Math.abs(dx), Math.abs(dy))
     );
+
+    // Mobile needs longer pull distance for better control
+    const isMobile = window.innerWidth <= 900;
+    const baseMultiplier = isMobile ? 0.20 : 0.13; // Mobile: ~1.5x longer pull needed
+    const angleMultiplier = isMobile ? 0.33 : 0.22; // Mobile: ~1.5x longer for diagonal
+
     const distanceMultiplier =
-      0.13 + (absAngleFromVertical / (Math.PI / 2)) * 0.22;
+      baseMultiplier + (absAngleFromVertical / (Math.PI / 2)) * angleMultiplier;
     const maxPullDistance = BOARD_SIZE * distanceMultiplier;
 
-    const autoPower = Math.min(100, (pullBackDistance / maxPullDistance) * 100);
+    let autoPower = Math.min(100, (pullBackDistance / maxPullDistance) * 100);
 
-    // Convert power percentage to velocity (increased multiplier for more speed)
-    const power = (autoPower / 100) * 32; // Increased from 30 to 35 for more speed
+    // Auto 100% if cursor reaches near bottom edge (web only)
+    if (!isMobile && gameState.aimStart.y > BOARD_SIZE - 30) {
+      autoPower = 100;
+    }
+
+    // Convert power percentage to velocity (adjust for board size differences)
+    // Mobile boards are smaller, so reduce velocity to match web feel
+    const velocityMultiplier = isMobile ? (BOARD_SIZE / 800) * 50 : 50;
+    const power = (autoPower / 100) * velocityMultiplier;
 
     // Shoot in opposite direction of pull (pull back to shoot forward)
     const pullBackAngle = Math.atan2(dy, dx);
