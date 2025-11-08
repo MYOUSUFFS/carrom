@@ -50,8 +50,74 @@ let gameState = {
     queenCovered: { player1: false, player2: false },
     piecesRemaining: { black: 9, white: 9 },
     shotInProgress: false,
-    pocketedThisShot: []
+    pocketedThisShot: [],
+    pocketEffects: [],
+    motionTrails: []
 };
+
+// Pocket effect animation
+class PocketEffect {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 5;
+        this.alpha = 1;
+        this.maxRadius = 40;
+    }
+
+    update() {
+        this.radius += 2;
+        this.alpha -= 0.02;
+    }
+
+    draw() {
+        if (this.alpha <= 0) return;
+
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = '#7e22ce';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    isDone() {
+        return this.alpha <= 0 || this.radius >= this.maxRadius;
+    }
+}
+
+// Motion trail for fast-moving pieces
+class MotionTrail {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.alpha = 0.5;
+        this.color = color;
+        this.radius = PIECE_RADIUS * 0.8;
+    }
+
+    update() {
+        this.alpha -= 0.05;
+    }
+
+    draw() {
+        if (this.alpha <= 0) return;
+
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.restore();
+    }
+
+    isDone() {
+        return this.alpha <= 0;
+    }
+}
 
 // Pockets positions (four corners)
 const pockets = [
@@ -72,30 +138,110 @@ class Piece {
         this.radius = PIECE_RADIUS;
         this.isQueen = isQueen;
         this.active = true;
+        this.rotation = Math.random() * Math.PI * 2; // Random initial rotation
+        this.angularVelocity = 0; // Rotation speed
+        this.mass = isQueen ? 1.1 : 1.0; // Queen is slightly heavier
     }
 
     draw() {
         if (!this.active) return;
 
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+
+        // Draw piece with gradient and rotation marks
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
 
         if (this.isQueen) {
-            ctx.fillStyle = '#e74c3c';
+            // Queen with red gradient
+            const gradient = ctx.createRadialGradient(-this.radius/3, -this.radius/3, 0, 0, 0, this.radius);
+            gradient.addColorStop(0, '#ff6b6b');
+            gradient.addColorStop(0.6, '#e74c3c');
+            gradient.addColorStop(1, '#c0392b');
+            ctx.fillStyle = gradient;
         } else {
-            ctx.fillStyle = this.color;
+            // Regular pieces with gradient
+            const gradient = ctx.createRadialGradient(-this.radius/3, -this.radius/3, 0, 0, 0, this.radius);
+            if (this.color === 'black') {
+                gradient.addColorStop(0, '#4a4a4a');
+                gradient.addColorStop(0.6, '#2c2c2c');
+                gradient.addColorStop(1, '#1a1a1a');
+            } else {
+                gradient.addColorStop(0, '#ffffff');
+                gradient.addColorStop(0.6, '#f5f5f5');
+                gradient.addColorStop(1, '#d0d0d0');
+            }
+            ctx.fillStyle = gradient;
         }
         ctx.fill();
 
+        // Draw rotation indicator lines
+        ctx.strokeStyle = this.isQueen ? '#fff' : (this.color === 'black' ? '#666' : '#999');
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(this.radius * 0.7, 0);
+        ctx.stroke();
+
+        // Draw small dots for visual rotation feedback
+        for (let i = 0; i < 4; i++) {
+            const angle = (Math.PI / 2) * i;
+            const dotX = Math.cos(angle) * this.radius * 0.6;
+            const dotY = Math.sin(angle) * this.radius * 0.6;
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, this.radius * 0.12, 0, Math.PI * 2);
+            ctx.fillStyle = this.isQueen ? 'rgba(255, 255, 255, 0.4)' :
+                           (this.color === 'black' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)');
+            ctx.fill();
+        }
+
+        // Outer border
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 2;
         ctx.stroke();
+
+        // Highlight/shine effect
+        ctx.beginPath();
+        ctx.arc(-this.radius/3, -this.radius/3, this.radius/3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.fill();
+
+        ctx.restore();
     }
 
     update() {
         if (!this.active) return;
 
-        // Apply friction
+        // Calculate speed for rotation
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+
+        // Add motion trail for fast-moving pieces
+        if (speed > 3 && Math.random() < 0.4) {
+            const trailColor = this.isQueen ? '#e74c3c' : this.color;
+            gameState.motionTrails.push(new MotionTrail(this.x, this.y, trailColor));
+        }
+
+        // Update angular velocity based on linear velocity (simulates rolling)
+        if (speed > 0.1) {
+            // Calculate rotation based on movement direction and speed
+            const direction = Math.atan2(this.vy, this.vx);
+            this.angularVelocity = speed / this.radius * 0.5;
+        }
+
+        // Apply friction to angular velocity
+        this.angularVelocity *= FRICTION;
+
+        // Update rotation
+        this.rotation += this.angularVelocity;
+
+        // Stop angular velocity if very small
+        if (Math.abs(this.angularVelocity) < 0.01) this.angularVelocity = 0;
+
+        // Apply friction to linear velocity
         this.vx *= FRICTION;
         this.vy *= FRICTION;
 
@@ -107,22 +253,26 @@ class Piece {
         this.x += this.vx;
         this.y += this.vy;
 
-        // Bounce off walls
+        // Bounce off walls with spin effect
         if (this.x - this.radius < BOARD_PADDING) {
             this.x = BOARD_PADDING + this.radius;
             this.vx *= -RESTITUTION;
+            this.angularVelocity *= 0.7; // Reduce spin on wall bounce
         }
         if (this.x + this.radius > BOARD_SIZE - BOARD_PADDING) {
             this.x = BOARD_SIZE - BOARD_PADDING - this.radius;
             this.vx *= -RESTITUTION;
+            this.angularVelocity *= 0.7;
         }
         if (this.y - this.radius < BOARD_PADDING) {
             this.y = BOARD_PADDING + this.radius;
             this.vy *= -RESTITUTION;
+            this.angularVelocity *= 0.7;
         }
         if (this.y + this.radius > BOARD_SIZE - BOARD_PADDING) {
             this.y = BOARD_SIZE - BOARD_PADDING - this.radius;
             this.vy *= -RESTITUTION;
+            this.angularVelocity *= 0.7;
         }
 
         // Check if in pocket
@@ -138,6 +288,8 @@ class Piece {
             if (distance < POCKET_RADIUS) {
                 this.active = false;
                 gameState.pocketedThisShot.push(this);
+                // Add pocket effect animation
+                gameState.pocketEffects.push(new PocketEffect(this.x, this.y));
             }
         }
     }
@@ -153,21 +305,53 @@ class Striker extends Piece {
         super(x, y, '#FFD700');
         this.radius = STRIKER_RADIUS;
         this.canPlace = true;
+        this.glowPhase = 0;
+        this.mass = 1.3; // Striker is heavier than regular pieces
+        this.angularVelocity = 0;
+        this.rotation = 0;
     }
 
     draw() {
+        // Animated glow effect
+        this.glowPhase += 0.05;
+        const glowSize = Math.sin(this.glowPhase) * 3 + 3;
+
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius + glowSize, 0, Math.PI * 2);
+        const outerGlow = ctx.createRadialGradient(
+            this.x, this.y, this.radius,
+            this.x, this.y, this.radius + glowSize
+        );
+        outerGlow.addColorStop(0, 'rgba(255, 215, 0, 0.3)');
+        outerGlow.addColorStop(1, 'rgba(255, 215, 0, 0)');
+        ctx.fillStyle = outerGlow;
+        ctx.fill();
+
+        // Main striker
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
 
-        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
-        gradient.addColorStop(0, '#FFD700');
+        const gradient = ctx.createRadialGradient(
+            this.x - this.radius/3, this.y - this.radius/3, 0,
+            this.x, this.y, this.radius
+        );
+        gradient.addColorStop(0, '#FFFACD');
+        gradient.addColorStop(0.5, '#FFD700');
         gradient.addColorStop(1, '#FFA500');
         ctx.fillStyle = gradient;
         ctx.fill();
 
-        ctx.strokeStyle = '#333';
+        // Border
+        ctx.strokeStyle = '#8B6914';
         ctx.lineWidth = 3;
         ctx.stroke();
+
+        // Shine effect
+        ctx.beginPath();
+        ctx.arc(this.x - this.radius/3, this.y - this.radius/3, this.radius/3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.fill();
     }
 }
 
@@ -287,7 +471,17 @@ function drawAimLine() {
 
         if (distance > 5) {
             const angle = Math.atan2(dy, dx);
-            const lineLength = Math.min(distance, 200);
+            const lineLength = Math.min(distance * 1.5, 250);
+
+            // Draw gradient aim line
+            const gradient = ctx.createLinearGradient(
+                gameState.striker.x,
+                gameState.striker.y,
+                gameState.striker.x + Math.cos(angle) * lineLength,
+                gameState.striker.y + Math.sin(angle) * lineLength
+            );
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#7e22ce');
 
             ctx.beginPath();
             ctx.moveTo(gameState.striker.x, gameState.striker.y);
@@ -295,11 +489,24 @@ function drawAimLine() {
                 gameState.striker.x + Math.cos(angle) * lineLength,
                 gameState.striker.y + Math.sin(angle) * lineLength
             );
-            ctx.strokeStyle = '#e74c3c';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([10, 5]);
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 4;
+            ctx.setLineDash([15, 10]);
             ctx.stroke();
             ctx.setLineDash([]);
+
+            // Draw power indicator circle at end of line
+            const powerIndicatorX = gameState.striker.x + Math.cos(angle) * lineLength;
+            const powerIndicatorY = gameState.striker.y + Math.sin(angle) * lineLength;
+            const powerSize = (gameState.power / 100) * 15 + 5;
+
+            ctx.beginPath();
+            ctx.arc(powerIndicatorX, powerIndicatorY, powerSize, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(126, 34, 206, 0.3)';
+            ctx.fill();
+            ctx.strokeStyle = '#7e22ce';
+            ctx.lineWidth = 2;
+            ctx.stroke();
         }
     }
 }
@@ -311,33 +518,54 @@ function checkCollision(piece1, piece2) {
     const distance = Math.sqrt(dx * dx + dy * dy);
     const minDistance = piece1.radius + piece2.radius;
 
-    if (distance < minDistance) {
-        // Collision response
-        const angle = Math.atan2(dy, dx);
-        const sin = Math.sin(angle);
-        const cos = Math.cos(angle);
+    if (distance < minDistance && distance > 0) {
+        // Get masses (striker has mass, others use default)
+        const m1 = piece1.mass || 1.0;
+        const m2 = piece2.mass || 1.0;
+        const totalMass = m1 + m2;
 
-        // Rotate velocities
-        const vx1 = piece1.vx * cos + piece1.vy * sin;
-        const vy1 = piece1.vy * cos - piece1.vx * sin;
-        const vx2 = piece2.vx * cos + piece2.vy * sin;
-        const vy2 = piece2.vy * cos - piece2.vx * sin;
+        // Collision normal
+        const nx = dx / distance;
+        const ny = dy / distance;
 
-        // Swap velocities (elastic collision)
-        const temp = vx1;
-        piece1.vx = (vx2 * cos - vy1 * sin) * RESTITUTION;
-        piece1.vy = (vy1 * cos + vx2 * sin) * RESTITUTION;
-        piece2.vx = (temp * cos - vy2 * sin) * RESTITUTION;
-        piece2.vy = (vy2 * cos + temp * sin) * RESTITUTION;
+        // Relative velocity
+        const dvx = piece2.vx - piece1.vx;
+        const dvy = piece2.vy - piece1.vy;
 
-        // Separate pieces
+        // Relative velocity in collision normal direction
+        const dvn = dvx * nx + dvy * ny;
+
+        // Do not resolve if velocities are separating
+        if (dvn > 0) return;
+
+        // Calculate impulse scalar with mass consideration
+        const impulse = (-(1 + RESTITUTION) * dvn) / totalMass;
+
+        // Apply impulse to velocities
+        const impulseX = impulse * nx;
+        const impulseY = impulse * ny;
+
+        piece1.vx -= impulseX * m2;
+        piece1.vy -= impulseY * m2;
+        piece2.vx += impulseX * m1;
+        piece2.vy += impulseY * m1;
+
+        // Transfer angular velocity (spin) on collision
+        const relativeSpeed = Math.sqrt(dvx * dvx + dvy * dvy);
+        if (piece1.angularVelocity !== undefined && piece2.angularVelocity !== undefined) {
+            const spinTransfer = relativeSpeed * 0.1;
+            piece1.angularVelocity += spinTransfer * (Math.random() - 0.5);
+            piece2.angularVelocity += spinTransfer * (Math.random() - 0.5);
+        }
+
+        // Separate pieces to prevent overlap
         const overlap = minDistance - distance;
-        const separationX = (dx / distance) * overlap / 2;
-        const separationY = (dy / distance) * overlap / 2;
-        piece1.x -= separationX;
-        piece1.y -= separationY;
-        piece2.x += separationX;
-        piece2.y += separationY;
+        const separationRatio = overlap / (m1 + m2);
+
+        piece1.x -= nx * separationRatio * m2;
+        piece1.y -= ny * separationRatio * m2;
+        piece2.x += nx * separationRatio * m1;
+        piece2.y += ny * separationRatio * m1;
     }
 }
 
@@ -487,8 +715,9 @@ function handleEnd(e) {
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance > 5) {
-        // Increased power multiplier: 100% now equals 20 power units instead of 10
-        const power = (gameState.power / 100) * 20;
+        // Increased power multiplier: More power across all percentages
+        // 10% = 3, 50% = 15, 100% = 30 power units
+        const power = (gameState.power / 100) * 30;
         const angle = Math.atan2(dy, dx);
 
         gameState.striker.vx = Math.cos(angle) * power;
@@ -532,6 +761,18 @@ function updateUI() {
     document.getElementById('p1-black').textContent = gameState.piecesRemaining.black;
     document.getElementById('p2-white').textContent = gameState.piecesRemaining.white;
 
+    // Highlight active player
+    const player1Card = document.querySelector('.player-score:first-child');
+    const player2Card = document.querySelector('.player-score:last-child');
+
+    if (gameState.currentPlayer === 1) {
+        player1Card.classList.add('active');
+        player2Card.classList.remove('active');
+    } else {
+        player1Card.classList.remove('active');
+        player2Card.classList.add('active');
+    }
+
     const queenStatus = gameState.queenPocketed ?
         (gameState.queenCovered.player1 ? 'Queen: Player 1' :
          gameState.queenCovered.player2 ? 'Queen: Player 2' : 'Queen: Pocketed (Not Covered)') :
@@ -543,6 +784,13 @@ function updateUI() {
 function gameLoop() {
     drawBoard();
 
+    // Update and draw motion trails (drawn before pieces for layering)
+    gameState.motionTrails = gameState.motionTrails.filter(trail => {
+        trail.update();
+        trail.draw();
+        return !trail.isDone();
+    });
+
     gameState.pieces.forEach(piece => piece.draw());
 
     if (gameState.striker) {
@@ -550,6 +798,14 @@ function gameLoop() {
     }
 
     drawAimLine();
+
+    // Update and draw pocket effects
+    gameState.pocketEffects = gameState.pocketEffects.filter(effect => {
+        effect.update();
+        effect.draw();
+        return !effect.isDone();
+    });
+
     updatePhysics();
 
     requestAnimationFrame(gameLoop);
