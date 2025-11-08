@@ -4,6 +4,11 @@
     box-sizing: border-box;
 }
 
+html {
+    overflow-x: hidden;
+    width: 100%;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
@@ -12,6 +17,8 @@ body {
     justify-content: center;
     align-items: center;
     padding: 20px;
+    width: 100%;
+    overflow-x: hidden;
 }
 
 .game-container {
@@ -20,6 +27,8 @@ body {
     padding: 30px;
     box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .scoreboard {
@@ -265,99 +274,80 @@ body {
 /* Mobile Responsive Styles */
 @media (max-width: 900px) {
     body {
-        padding: 10px;
+        padding: 5px;
+        min-height: 100vh;
+        display: flex;
+        align-items: flex-start;
     }
 
     .game-container {
-        padding: 15px;
+        padding: 10px;
         max-width: 100%;
+        width: 100%;
+        margin: 0 auto;
     }
 
     .scoreboard {
-        flex-direction: column;
-        gap: 15px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
     }
 
-    .game-info h2 {
-        font-size: 24px;
+    .player-score {
+        flex: 1 1 calc(50% - 5px);
+        min-width: 140px;
+        padding: 12px 8px;
     }
 
     .player-score h3 {
-        font-size: 16px;
+        font-size: 14px;
+        margin-bottom: 5px;
     }
 
     .score {
-        font-size: 36px;
+        font-size: 32px;
+    }
+
+    .pieces-left {
+        font-size: 14px;
+        padding: 5px 8px;
+        margin-top: 5px;
+    }
+
+    .game-info {
+        flex: 1 1 100%;
+        order: -1;
+    }
+
+    .game-info h2 {
+        font-size: 22px;
+        margin-bottom: 8px;
     }
 
     .current-player {
-        font-size: 16px;
-        padding: 8px;
+        font-size: 14px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+    }
+
+    .queen-status {
+        font-size: 12px;
+        padding: 6px 12px;
+        margin-bottom: 8px;
+    }
+
+    #reset-btn {
+        padding: 8px 20px;
+        font-size: 13px;
     }
 
     #carrom-board {
         width: 100%;
         height: auto;
         max-width: 100%;
-    }
-
-    .power-control label {
-        font-size: 14px;
-    }
-
-    .instructions {
-        padding: 12px;
-    }
-
-    .instructions p {
-        font-size: 12px;
-        margin-bottom: 5px;
-    }
-
-    #reset-btn {
-        padding: 10px 20px;
-        font-size: 14px;
-    }
-}
-
-@media (max-width: 600px) {
-    .game-container {
-        padding: 10px;
-        border-radius: 10px;
-    }
-
-    .scoreboard {
-        gap: 10px;
-    }
-
-    .game-info h2 {
-        font-size: 20px;
-        margin-bottom: 10px;
-    }
-
-    .player-score h3 {
-        font-size: 14px;
-        margin-bottom: 5px;
-    }
-
-    .score {
-        font-size: 28px;
-        margin-bottom: 5px;
-    }
-
-    .pieces-left {
-        font-size: 16px;
-        padding: 6px 10px;
-    }
-
-    .current-player {
-        font-size: 14px;
-        padding: 6px;
-    }
-
-    .queen-status {
-        font-size: 12px;
-        margin-bottom: 10px;
+        display: block;
+        margin: 0 auto;
     }
 
     .controls {
@@ -365,15 +355,134 @@ body {
     }
 
     .power-control {
-        margin-bottom: 15px;
+        margin-bottom: 12px;
+        padding: 15px;
+    }
+
+    .power-control label {
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+
+    .instructions {
+        padding: 12px;
     }
 
     .instructions p {
         font-size: 11px;
+        margin-bottom: 5px;
+        line-height: 1.4;
+    }
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 3px;
+    }
+
+    .game-container {
+        padding: 8px;
+        border-radius: 12px;
+    }
+
+    .scoreboard {
+        gap: 8px;
+    }
+
+    .player-score {
+        padding: 10px 6px;
+    }
+
+    .player-score h3 {
+        font-size: 12px;
+        margin-bottom: 4px;
+    }
+
+    .score {
+        font-size: 26px;
+        margin-bottom: 4px;
+    }
+
+    .pieces-left {
+        font-size: 13px;
+        padding: 4px 6px;
+    }
+
+    .game-info h2 {
+        font-size: 18px;
+        margin-bottom: 6px;
+        letter-spacing: 2px;
+    }
+
+    .current-player {
+        font-size: 13px;
+        padding: 6px 10px;
+        margin-bottom: 6px;
+    }
+
+    .queen-status {
+        font-size: 11px;
+        padding: 5px 10px;
+        margin-bottom: 6px;
     }
 
     #reset-btn {
-        padding: 8px 16px;
-        font-size: 13px;
+        padding: 7px 16px;
+        font-size: 12px;
+    }
+
+    .controls {
+        margin-top: 12px;
+    }
+
+    .power-control {
+        margin-bottom: 10px;
+        padding: 12px;
+    }
+
+    .power-control label {
+        font-size: 12px;
+        margin-bottom: 6px;
+    }
+
+    #power-value {
+        font-size: 16px;
+    }
+
+    .instructions {
+        padding: 10px;
+    }
+
+    .instructions p {
+        font-size: 10px;
+        margin-bottom: 4px;
+    }
+}
+
+@media (max-width: 400px) {
+    .game-container {
+        padding: 5px;
+    }
+
+    .scoreboard {
+        gap: 5px;
+    }
+
+    .player-score {
+        flex: 1 1 100%;
+        padding: 8px;
+    }
+
+    .game-info h2 {
+        font-size: 16px;
+        letter-spacing: 1px;
+    }
+
+    .score {
+        font-size: 24px;
+    }
+
+    .pieces-left {
+        font-size: 12px;
     }
 }
