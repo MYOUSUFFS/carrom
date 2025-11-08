@@ -24,8 +24,19 @@ function resizeCanvas() {
     PIECE_RADIUS = BOARD_SIZE / 53.33;
     STRIKER_RADIUS = BOARD_SIZE / 44.44;
 
-    canvas.width = BOARD_SIZE;
-    canvas.height = BOARD_SIZE;
+    // Fix blurry canvas on high-DPI devices (mobile retina)
+    const dpr = window.devicePixelRatio || 1;
+
+    // Set display size (CSS pixels)
+    canvas.style.width = BOARD_SIZE + 'px';
+    canvas.style.height = BOARD_SIZE + 'px';
+
+    // Set actual size in memory (scaled for device pixel ratio)
+    canvas.width = BOARD_SIZE * dpr;
+    canvas.height = BOARD_SIZE * dpr;
+
+    // Scale all drawing operations
+    ctx.scale(dpr, dpr);
 }
 
 // Call resize on load and window resize
@@ -354,27 +365,37 @@ class Striker extends Piece {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.fill();
 
-        // Draw movement arrows if not in shot progress and not aiming
+        // Draw movement indicators if not in shot progress and not aiming
         if (!gameState.shotInProgress && !gameState.isAiming) {
             const arrowY = this.y;
-            const arrowSize = 8;
+            const arrowSize = 10;
+            const arrowDistance = this.radius + 20;
+
+            // Touch area indicator (larger circle on mobile)
+            if (gameState.isDraggingStriker) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 2.5, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(102, 126, 234, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
 
             // Left arrow
             ctx.beginPath();
-            ctx.moveTo(this.x - this.radius - 15, arrowY);
-            ctx.lineTo(this.x - this.radius - 15 - arrowSize, arrowY - arrowSize);
-            ctx.lineTo(this.x - this.radius - 15 - arrowSize, arrowY + arrowSize);
+            ctx.moveTo(this.x - arrowDistance, arrowY);
+            ctx.lineTo(this.x - arrowDistance - arrowSize, arrowY - arrowSize);
+            ctx.lineTo(this.x - arrowDistance - arrowSize, arrowY + arrowSize);
             ctx.closePath();
-            ctx.fillStyle = 'rgba(102, 126, 234, 0.7)';
+            ctx.fillStyle = 'rgba(102, 126, 234, 0.8)';
             ctx.fill();
 
             // Right arrow
             ctx.beginPath();
-            ctx.moveTo(this.x + this.radius + 15, arrowY);
-            ctx.lineTo(this.x + this.radius + 15 + arrowSize, arrowY - arrowSize);
-            ctx.lineTo(this.x + this.radius + 15 + arrowSize, arrowY + arrowSize);
+            ctx.moveTo(this.x + arrowDistance, arrowY);
+            ctx.lineTo(this.x + arrowDistance + arrowSize, arrowY - arrowSize);
+            ctx.lineTo(this.x + arrowDistance + arrowSize, arrowY + arrowSize);
             ctx.closePath();
-            ctx.fillStyle = 'rgba(102, 126, 234, 0.7)';
+            ctx.fillStyle = 'rgba(102, 126, 234, 0.8)';
             ctx.fill();
         }
     }
@@ -780,13 +801,32 @@ function endShot() {
     updateUI();
 }
 
-// Event handlers - Mouse events
+// Event handlers - Mouse and touch events
 function getCanvasCoordinates(e, rect) {
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    let clientX, clientY;
+
+    if (e.touches && e.touches.length > 0) {
+        // Touch event
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    } else if (e.changedTouches && e.changedTouches.length > 0) {
+        // Touch end event
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+    } else {
+        // Mouse event
+        clientX = e.clientX;
+        clientY = e.clientY;
+    }
+
+    // Account for DPI scaling
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const dpr = window.devicePixelRatio || 1;
+
     return {
-        x: clientX - rect.left,
-        y: clientY - rect.top
+        x: ((clientX - rect.left) * scaleX) / dpr,
+        y: ((clientY - rect.top) * scaleY) / dpr
     };
 }
 
@@ -800,8 +840,12 @@ function handleStart(e) {
     const dy = y - gameState.striker.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Check if clicking on striker
-    if (distance < gameState.striker.radius * 1.5) {
+    // Larger touch area for mobile (3x radius for touch, 1.5x for mouse)
+    const isTouchEvent = e.type.startsWith('touch');
+    const touchArea = isTouchEvent ? gameState.striker.radius * 3 : gameState.striker.radius * 1.5;
+
+    // Check if touching/clicking striker
+    if (distance < touchArea) {
         gameState.isDraggingStriker = true;
         e.preventDefault();
     }
