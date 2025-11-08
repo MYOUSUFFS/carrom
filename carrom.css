@@ -164,13 +164,117 @@ body {
     color: #667eea;
 }
 
+/* Mobile Responsive Styles */
 @media (max-width: 900px) {
-    #carrom-board {
-        width: 100%;
-        height: auto;
+    body {
+        padding: 10px;
+    }
+
+    .game-container {
+        padding: 15px;
+        max-width: 100%;
     }
 
     .scoreboard {
         flex-direction: column;
+        gap: 15px;
+    }
+
+    .game-info h2 {
+        font-size: 24px;
+    }
+
+    .player-score h3 {
+        font-size: 16px;
+    }
+
+    .score {
+        font-size: 36px;
+    }
+
+    .current-player {
+        font-size: 16px;
+        padding: 8px;
+    }
+
+    #carrom-board {
+        width: 100%;
+        height: auto;
+        max-width: 100%;
+    }
+
+    .power-control label {
+        font-size: 14px;
+    }
+
+    .instructions {
+        padding: 12px;
+    }
+
+    .instructions p {
+        font-size: 12px;
+        margin-bottom: 5px;
+    }
+
+    #reset-btn {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 600px) {
+    .game-container {
+        padding: 10px;
+        border-radius: 10px;
+    }
+
+    .scoreboard {
+        gap: 10px;
+    }
+
+    .game-info h2 {
+        font-size: 20px;
+        margin-bottom: 10px;
+    }
+
+    .player-score h3 {
+        font-size: 14px;
+        margin-bottom: 5px;
+    }
+
+    .score {
+        font-size: 28px;
+        margin-bottom: 5px;
+    }
+
+    .pieces-left {
+        font-size: 12px;
+    }
+
+    .current-player {
+        font-size: 14px;
+        padding: 6px;
+    }
+
+    .queen-status {
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
+
+    .controls {
+        margin-top: 15px;
+    }
+
+    .power-control {
+        margin-bottom: 15px;
+    }
+
+    .instructions p {
+        font-size: 11px;
+    }
+
+    #reset-btn {
+        padding: 8px 16px;
+        font-size: 13px;
     }
 }

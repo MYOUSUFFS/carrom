@@ -3,14 +3,39 @@ const canvas = document.getElementById('carrom-board');
 const ctx = canvas.getContext('2d');
 
 // Game constants
-const BOARD_SIZE = 800;
-const BOARD_PADDING = 100;
-const PLAYABLE_SIZE = BOARD_SIZE - (BOARD_PADDING * 2);
-const POCKET_RADIUS = 25;
-const PIECE_RADIUS = 15;
-const STRIKER_RADIUS = 18;
+let BOARD_SIZE = 800;
+let BOARD_PADDING = 100;
+let PLAYABLE_SIZE = BOARD_SIZE - (BOARD_PADDING * 2);
+let POCKET_RADIUS = 25;
+let PIECE_RADIUS = 15;
+let STRIKER_RADIUS = 18;
 const FRICTION = 0.98;
 const RESTITUTION = 0.85;
+
+// Responsive canvas sizing
+function resizeCanvas() {
+    const container = document.querySelector('.game-container');
+    const maxWidth = Math.min(800, container.clientWidth - 60);
+
+    BOARD_SIZE = maxWidth;
+    BOARD_PADDING = BOARD_SIZE / 8;
+    PLAYABLE_SIZE = BOARD_SIZE - (BOARD_PADDING * 2);
+    POCKET_RADIUS = BOARD_SIZE / 32;
+    PIECE_RADIUS = BOARD_SIZE / 53.33;
+    STRIKER_RADIUS = BOARD_SIZE / 44.44;
+
+    canvas.width = BOARD_SIZE;
+    canvas.height = BOARD_SIZE;
+}
+
+// Call resize on load and window resize
+resizeCanvas();
+window.addEventListener('resize', () => {
+    resizeCanvas();
+    if (gameState.pieces.length === 0) {
+        initGame();
+    }
+});
 
 // Game state
 let gameState = {
@@ -418,13 +443,21 @@ function endShot() {
     updateUI();
 }
 
-// Event handlers
-canvas.addEventListener('mousedown', (e) => {
+// Event handlers - Mouse events
+function getCanvasCoordinates(e, rect) {
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+    };
+}
+
+function handleStart(e) {
     if (gameState.shotInProgress) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = getCanvasCoordinates(e, rect);
 
     const dx = x - gameState.striker.x;
     const dy = y - gameState.striker.y;
@@ -433,20 +466,20 @@ canvas.addEventListener('mousedown', (e) => {
     if (distance < gameState.striker.radius * 2) {
         gameState.isAiming = true;
         gameState.aimStart = { x, y };
+        e.preventDefault();
     }
-});
+}
 
-canvas.addEventListener('mousemove', (e) => {
+function handleMove(e) {
     if (!gameState.isAiming) return;
 
     const rect = canvas.getBoundingClientRect();
-    gameState.aimStart = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-    };
-});
+    const { x, y } = getCanvasCoordinates(e, rect);
+    gameState.aimStart = { x, y };
+    e.preventDefault();
+}
 
-canvas.addEventListener('mouseup', (e) => {
+function handleEnd(e) {
     if (!gameState.isAiming) return;
 
     const dx = gameState.aimStart.x - gameState.striker.x;
@@ -454,7 +487,8 @@ canvas.addEventListener('mouseup', (e) => {
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance > 5) {
-        const power = gameState.power / 10;
+        // Increased power multiplier: 100% now equals 20 power units instead of 10
+        const power = (gameState.power / 100) * 20;
         const angle = Math.atan2(dy, dx);
 
         gameState.striker.vx = Math.cos(angle) * power;
@@ -465,7 +499,18 @@ canvas.addEventListener('mouseup', (e) => {
 
     gameState.isAiming = false;
     gameState.aimStart = null;
-});
+    e.preventDefault();
+}
+
+// Mouse events
+canvas.addEventListener('mousedown', handleStart);
+canvas.addEventListener('mousemove', handleMove);
+canvas.addEventListener('mouseup', handleEnd);
+
+// Touch events for mobile
+canvas.addEventListener('touchstart', handleStart, { passive: false });
+canvas.addEventListener('touchmove', handleMove, { passive: false });
+canvas.addEventListener('touchend', handleEnd, { passive: false });
 
 // Power slider
 document.getElementById('power-slider').addEventListener('input', (e) => {
