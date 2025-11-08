@@ -8,35 +8,39 @@
 </head>
 <body>
     <div class="game-container">
+        <div class="header">
+            <div class="title-section">
+                <h1>CARROM</h1>
+                <button class="info-btn" id="info-btn" title="How to Play">ⓘ</button>
+            </div>
+            <div class="current-turn" id="current-player">Player 1's Turn</div>
+        </div>
+
         <div class="scoreboard">
-            <div class="player-score">
-                <h3>Player 1</h3>
-                <div class="score" id="player1-score">0</div>
-                <div class="pieces-left">Black: <span id="p1-black">9</span></div>
+            <div class="player-info">
+                <span class="player-name">P1</span>
+                <span class="score" id="player1-score">0</span>
+                <span class="pieces-count" id="p1-black">9</span>
             </div>
-            <div class="game-info">
-                <h2>CARROM</h2>
-                <div class="current-player" id="current-player">Player 1's Turn</div>
-                <div class="queen-status" id="queen-status">Queen: Available</div>
-                <button id="reset-btn">New Game</button>
-            </div>
-            <div class="player-score">
-                <h3>Player 2</h3>
-                <div class="score" id="player2-score">0</div>
-                <div class="pieces-left">White: <span id="p2-white">9</span></div>
+            <button id="reset-btn">New Game</button>
+            <div class="player-info">
+                <span class="player-name">P2</span>
+                <span class="score" id="player2-score">0</span>
+                <span class="pieces-count" id="p2-white">9</span>
             </div>
         </div>
+
         <canvas id="carrom-board" width="800" height="800"></canvas>
-        <div class="controls">
-            <div class="power-control">
-                <label>Power: <span id="power-value">50</span>%</label>
-                <input type="range" id="power-slider" min="10" max="100" value="50">
-            </div>
-            <div class="instructions">
-                <p><strong>How to Play:</strong></p>
+
+        <!-- Instructions Tooltip -->
+        <div class="instructions-tooltip" id="instructions-tooltip">
+            <div class="tooltip-content">
+                <h3>How to Play</h3>
                 <p>• Drag striker left/right to position</p>
                 <p>• Pull back to aim (power auto increases)</p>
+                <p>• Release to shoot forward</p>
                 <p>• Pocket your color pieces to win!</p>
+                <button class="close-tooltip" id="close-tooltip">✕</button>
             </div>
         </div>
     </div>

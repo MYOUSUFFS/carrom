@@ -4,7 +4,7 @@ const ctx = canvas.getContext('2d');
 
 // Game constants
 let BOARD_SIZE = 800;
-let BOARD_PADDING = 100;
+let BOARD_PADDING = 60; // Reduced from 100 to 60
 let PLAYABLE_SIZE = BOARD_SIZE - (BOARD_PADDING * 2);
 let POCKET_RADIUS = 25;
 let PIECE_RADIUS = 15;
@@ -15,10 +15,10 @@ const RESTITUTION = 0.85;
 // Responsive canvas sizing
 function resizeCanvas() {
     const container = document.querySelector('.game-container');
-    const maxWidth = Math.min(800, container.clientWidth - 60);
+    const maxWidth = Math.min(800, container.clientWidth - 30);
 
     BOARD_SIZE = maxWidth;
-    BOARD_PADDING = BOARD_SIZE / 8;
+    BOARD_PADDING = BOARD_SIZE / 13.33; // Reduced border (800/13.33 = 60)
     PLAYABLE_SIZE = BOARD_SIZE - (BOARD_PADDING * 2);
     POCKET_RADIUS = BOARD_SIZE / 32;
     PIECE_RADIUS = BOARD_SIZE / 53.33;
@@ -500,13 +500,18 @@ function drawAimLine() {
             // Shooting angle (forward direction - opposite of pull back)
             const shootAngle = pullBackAngle + Math.PI;
 
-            // Calculate auto power based on pull-back distance (max 250px = 100%)
-            const autoPower = Math.min(100, Math.floor((pullBackDistance / 250) * 100));
-            gameState.power = autoPower;
+            // Direction-aware power: adjust max distance based on pull angle
+            // Calculate how much horizontal vs vertical movement
+            const absAngleFromVertical = Math.abs(Math.atan2(Math.abs(dx), Math.abs(dy)));
 
-            // Update power display
-            document.getElementById('power-value').textContent = autoPower;
-            document.getElementById('power-slider').value = autoPower;
+            // Straight down = 0, Diagonal (45°) = 0.785, Sideways (90°) = 1.57
+            // Map this to distance multiplier: 0.13 (straight) to 0.35 (sideways)
+            // Reduced straight-down from 0.18 to 0.13 for easier 100% power
+            const distanceMultiplier = 0.13 + (absAngleFromVertical / (Math.PI / 2)) * 0.22;
+            const maxPullDistance = BOARD_SIZE * distanceMultiplier;
+
+            const autoPower = Math.min(100, Math.floor((pullBackDistance / maxPullDistance) * 100));
+            gameState.power = autoPower;
 
             // Draw pull-back indicator (where you're pulling)
             ctx.beginPath();
@@ -842,9 +847,15 @@ function handleEnd(e) {
     const pullBackDistance = Math.sqrt(dx * dx + dy * dy);
 
     if (pullBackDistance > 5) {
-        // Calculate power based on pull-back distance
-        const autoPower = Math.min(100, (pullBackDistance / 250) * 100);
-        const power = (autoPower / 100) * 30;
+        // Direction-aware power calculation (same as drawAimLine)
+        const absAngleFromVertical = Math.abs(Math.atan2(Math.abs(dx), Math.abs(dy)));
+        const distanceMultiplier = 0.13 + (absAngleFromVertical / (Math.PI / 2)) * 0.22;
+        const maxPullDistance = BOARD_SIZE * distanceMultiplier;
+
+        const autoPower = Math.min(100, (pullBackDistance / maxPullDistance) * 100);
+
+        // Convert power percentage to velocity (increased multiplier for more speed)
+        const power = (autoPower / 100) * 35; // Increased from 30 to 35 for more speed
 
         // Shoot in opposite direction of pull (pull back to shoot forward)
         const pullBackAngle = Math.atan2(dy, dx);
@@ -872,15 +883,24 @@ canvas.addEventListener('touchstart', handleStart, { passive: false });
 canvas.addEventListener('touchmove', handleMove, { passive: false });
 canvas.addEventListener('touchend', handleEnd, { passive: false });
 
-// Power slider
-document.getElementById('power-slider').addEventListener('input', (e) => {
-    gameState.power = e.target.value;
-    document.getElementById('power-value').textContent = e.target.value;
-});
-
 // Reset button
 document.getElementById('reset-btn').addEventListener('click', () => {
     initGame();
+});
+
+// Instructions tooltip
+document.getElementById('info-btn').addEventListener('click', () => {
+    document.getElementById('instructions-tooltip').classList.add('show');
+});
+
+document.getElementById('close-tooltip').addEventListener('click', () => {
+    document.getElementById('instructions-tooltip').classList.remove('show');
+});
+
+document.getElementById('instructions-tooltip').addEventListener('click', (e) => {
+    if (e.target.id === 'instructions-tooltip') {
+        document.getElementById('instructions-tooltip').classList.remove('show');
+    }
 });
 
 // Update UI
@@ -893,22 +913,16 @@ function updateUI() {
     document.getElementById('p2-white').textContent = gameState.piecesRemaining.white;
 
     // Highlight active player
-    const player1Card = document.querySelector('.player-score:first-child');
-    const player2Card = document.querySelector('.player-score:last-child');
+    const player1Info = document.querySelector('.player-info:first-child');
+    const player2Info = document.querySelector('.player-info:last-child');
 
     if (gameState.currentPlayer === 1) {
-        player1Card.classList.add('active');
-        player2Card.classList.remove('active');
+        player1Info.classList.add('active');
+        player2Info.classList.remove('active');
     } else {
-        player1Card.classList.remove('active');
-        player2Card.classList.add('active');
+        player1Info.classList.remove('active');
+        player2Info.classList.add('active');
     }
-
-    const queenStatus = gameState.queenPocketed ?
-        (gameState.queenCovered.player1 ? 'Queen: Player 1' :
-         gameState.queenCovered.player2 ? 'Queen: Player 2' : 'Queen: Pocketed (Not Covered)') :
-        'Queen: Available';
-    document.getElementById('queen-status').textContent = queenStatus;
 }
 
 // Game loop
